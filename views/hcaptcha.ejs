@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>hCaptcha 認証</title>
+  <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #05004e, #15004e);
+      color: white;
+      text-align: center;
+      font-family: sans-serif;
+      padding-top: 100px;
+    }
+    .button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #5865F2;
+      border-radius: 8px;
+      color: white;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 セキュリティ確認</h1>
+  <p>hCaptchaであなたが人間であることを確認してください。</p>
+
+  <form action="/verify" method="post">
+    <div class="h-captcha" data-sitekey="<%= sitekey %>"></div>
+    <button type="submit" class="button">認証を完了する</button>
+  </form>
+</body>
+</html>

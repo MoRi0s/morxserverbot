@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>認証成功</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #1e1e2f;
+      color: white;
+      text-align: center;
+      padding-top: 100px;
+    }
+    h2 { color: #00ff88; }
+    .button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: linear-gradient(90deg, #0055ff, #5500ff);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: 0.3s;
+    }
+    .button:hover { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <h2>✅ 認証に成功しました！</h2>
+  <p>ようこそ、<%= user.username %> さん！</p>
+
+  <!-- サーバーに戻るボタン -->
+  <a class="button" href="<%= returnURL %>">Discordに戻る</a>
+</body>
+</html>
