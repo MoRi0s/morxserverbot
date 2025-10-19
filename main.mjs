@@ -21,6 +21,9 @@ import { fileURLToPath } from 'url';
 // ===== 初期化 =====
 dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+console.log('ENV CHECK: AUTH_URL=', process.env.AUTH_URL);
+console.log('ENV CHECK: REDIRECT_URL=', process.env.REDIRECT_URL);
+
 
 // ===== Discord Bot =====
 const client = new Client({
@@ -122,20 +125,38 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+
+
 passport.use(
   new DiscordStrategy(
     {
       clientID: process.env.CLIENT_ID,
       clientSecret: process.env.CLIENT_SECRET,
-      callbackURL: process.env.REDIRECT_URL, // 例: https://morxserverbot.onrender.com/auth/callback
-      scope: ['identify'],
+      callbackURL: process.env.REDIRECT_URL,
+      scope: ['identify', 'guilds'],
     },
-    (accessToken, refreshToken, profile, done) => done(null, profile)
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        console.log('✅ OAuth verify triggered');
+        console.log('accessToken =', accessToken ? 'OK' : 'MISSING');
+        console.log('profile =', profile ? profile.username : 'undefined');
+        return done(null, profile);
+      } catch (err) {
+        console.error('❌ OAuth verify error:', err);
+        return done(err);
+      }
+    }
   )
 );
 
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+passport.deserializeUser((obj, done) => {
+  done(null, obj);
+});
+
+
 
 // ===== ルーティング =====
 
@@ -148,14 +169,21 @@ app.get('/auth', (req, res) => res.render('login'));
 // Discord OAuth2
 app.get('/auth/discord', passport.authenticate('discord'));
 
-// Discord OAuth2 コールバック
 app.get(
   '/auth/callback',
-  passport.authenticate('discord', { failureRedirect: '/' }),
+  passport.authenticate('discord', { failureRedirect: '/auth/error' }),
   (req, res) => {
-    res.redirect('/hcaptcha');
+    console.log('✅ /auth/callback reached');
+    console.log('req.user =', req.user);
+    res.send('✅ 認証成功！Discordで連携できました。');
   }
 );
+
+app.get('/auth/error', (req, res) => {
+  console.error('❌ /auth/error に到達 — OAuth失敗');
+  res.status(500).send('OAuth 認証に失敗しました。ログを確認してください。');
+});
+
 
 // hCaptcha ページ
 app.get('/hcaptcha', (req, res) => {
