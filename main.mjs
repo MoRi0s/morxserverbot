@@ -185,11 +185,45 @@ app.get(
 
 
 
-// hCaptcha ページ
-app.get('/hcaptcha', (req, res) => {
-  if (!req.user) return res.redirect('/auth/discord');
-  res.render('hcaptcha', { sitekey: process.env.HCAPTCHA_SITEKEY });
+app.get('/hcaptcha', async (req, res) => {
+  try {
+    if (!req.user) return res.redirect('/auth');
+
+    const linkPath = path.resolve('./link.json');
+    let serverName = 'Morx Server';
+
+    if (fs.existsSync(linkPath)) {
+      const { returnURL } = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
+      const guildId = returnURL.split('/')[4];
+      if (guildId && guildId !== '@me') {
+        const guild = client.guilds.cache.get(guildId);
+        if (guild) serverName = guild.name;
+      }
+    }
+
+    res.render('hcaptcha', {
+      sitekey: process.env.HCAPTCHA_SITEKEY,
+      serverName
+    });
+  } catch (err) {
+    console.error('❌ /hcaptcha エラー:', err);
+    res.status(500).send('Internal Server Error');
+  }
 });
+
+
+app.use(
+  session({
+    secret: 'super_secret_session',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,  // RenderのFreeプランではtrueにするとセッション維持されないことがある
+      maxAge: 1000 * 60 * 10 // 10分有効
+    }
+  })
+);
+
 
 // hCaptcha 検証
 app.post('/verify', async (req, res) => {

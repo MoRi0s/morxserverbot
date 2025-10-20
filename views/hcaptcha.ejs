@@ -10,45 +10,54 @@
       background-color: #1e1e2f;
       color: white;
       text-align: center;
-      padding-top: 100px;
+      padding-top: 80px;
+      margin: 0;
     }
 
     .container {
       display: inline-block;
       background: #2a2a3d;
-      padding: 40px;
+      padding: 40px 50px;
       border-radius: 16px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-      min-width: 320px;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
+      min-width: 340px;
+      max-width: 420px;
     }
 
     h1 {
       background: linear-gradient(90deg, #0055ff, #5500ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      font-size: 1.8rem;
-      margin-bottom: 20px;
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-weight: normal;
+      color: #ccccff;
+      margin-bottom: 30px;
     }
 
     .h-captcha {
       display: inline-block;
-      margin: 10px 0;
+      margin: 20px 0;
     }
 
     button {
       margin-top: 20px;
-      padding: 12px 30px;
+      padding: 12px 36px;
       background: linear-gradient(90deg, #0055ff, #5500ff);
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: 0.3s;
+      transition: all 0.25s ease;
       font-size: 1rem;
     }
 
     button:hover {
-      opacity: 0.8;
+      transform: translateY(-2px);
+      opacity: 0.9;
     }
 
     footer {
@@ -61,12 +70,15 @@
 <body>
   <div class="container">
     <h1><%= serverName %> 認証</h1>
+    <h2>HCaptcha認証を行ってください</h2>
+
     <form method="POST" action="/verify">
       <div class="h-captcha" data-sitekey="<%= sitekey %>"></div>
-      <br>
+      <br />
       <button type="submit">送信</button>
     </form>
   </div>
+
   <footer>
     powered by Morx Server Bot
   </footer>
