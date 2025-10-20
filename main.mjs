@@ -1,5 +1,6 @@
 // ===== main.mjs =====
 
+// ===== 必要なライブラリ =====
 import {
   Client,
   GatewayIntentBits,
@@ -10,6 +11,7 @@ import {
 } from 'discord.js';
 import dotenv from 'dotenv';
 import express from 'express';
+import ejs from 'ejs';
 import session from 'express-session';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
@@ -18,12 +20,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-// ===== 初期化 =====
 dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-console.log('ENV CHECK: AUTH_URL=', process.env.AUTH_URL);
-console.log('ENV CHECK: REDIRECT_URL=', process.env.REDIRECT_URL);
-
 
 // ===== Discord Bot =====
 const client = new Client({
@@ -35,22 +33,28 @@ const client = new Client({
   ],
 });
 
-// ===== Bot起動 =====
+// ===== Bot起動時 =====
 client.once('ready', () => {
-  console.log(`✅ ${client.user.tag} が起動しました`);
+  console.log(`🎉 ${client.user.tag} が起動しました！`);
 });
 
-// ===== メッセージコマンド =====
+// ===== メッセージ処理 =====
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // ping応答
+  // ping
   if (message.content.toLowerCase() === 'ping') {
-    return message.reply('🏓 pong!');
+    await message.reply('🏓 pong!');
   }
 
-  // !auth コマンド
+  // 認証ボタンを出す
   if (message.content.toLowerCase() === '!auth') {
+    // すでにメッセージを送信していれば重複防止
+    const existing = message.channel.lastMessage;
+    if (existing && existing.author.id === client.user.id) {
+      return message.reply('⚠️ 認証ボタンはすでに送信済みです。');
+    }
+
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('auth_button')
@@ -64,55 +68,63 @@ client.on('messageCreate', async (message) => {
     });
   }
 
-  // !return コマンド（管理者専用）
+  // !return コマンド
   if (message.content.startsWith('!return ')) {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return message.reply('⚠️ このコマンドは管理者のみ使用できます。');
     }
 
-    const url = message.content.split(' ')[1];
+    const args = message.content.split(' ');
+    const url = args[1];
     if (!url || !url.startsWith('https://discord.com/channels/')) {
       return message.reply('❌ 正しいチャンネルリンクを入力してください。');
     }
 
-    fs.writeFileSync('./link.json', JSON.stringify({ returnURL: url }, null, 2));
-    message.reply(`✅ 「サーバーに戻る」ボタンを更新しました。\n→ ${url}`);
+    const linkPath = path.resolve('./link.json');
+    const data = { returnURL: url };
+    fs.writeFileSync(linkPath, JSON.stringify(data, null, 2));
+
+    await message.reply(`✅ 「サーバーに戻る」ボタンのリンクを更新しました！\n→ ${url}`);
   }
 });
 
+// ===== ボタン押下 =====
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   if (interaction.customId !== 'auth_button') return;
 
   try {
-    const authURL = 'https://morxserverbot.onrender.com/auth'; // ← 1か所だけに統一！
-
-    // すぐ応答（flagsでephemeral指定）
-    await interaction.reply({
+    await interaction.deferReply({ ephemeral: true });
+    const authURL = 'https://morxserverbot.onrender.com/auth/discord';
+    await interaction.editReply({
       content: `こちらから認証を行ってください:\n🔗 ${authURL}`,
-      flags: 64 // ← ephemeral: true の代わり
     });
-
     console.log(`✅ ${interaction.user.tag} が認証ボタンを押しました`);
   } catch (err) {
-    console.error('❌ interactionエラー:', err);
+    console.error('❌ Interaction error:', err);
   }
 });
 
+// ===== Discord ログイン =====
+if (!process.env.DISCORD_TOKEN) {
+  console.error('❌ DISCORD_TOKEN が未設定です');
+  process.exit(1);
+}
+client.login(process.env.DISCORD_TOKEN);
 
-// ===== Discordログイン =====
-client.login(process.env.DISCORD_TOKEN).catch(console.error);
-
-// ===== Express Webサーバー（Render） =====
+// ===== Express サーバー =====
 const app = express();
 const port = process.env.PORT || 3000;
+app.set('view engine', 'ejs');
+app.set('views', './views');
 
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('public'));
 
-// セッション設定
 app.use(
   session({
     secret: 'super_secret_session',
@@ -120,82 +132,55 @@ app.use(
     saveUninitialized: false,
   })
 );
-
-// ===== Passport (Discord OAuth2) =====
 app.use(passport.initialize());
 app.use(passport.session());
 
-
-
+// ===== Discord OAuth2 =====
 passport.use(
   new DiscordStrategy(
     {
       clientID: process.env.CLIENT_ID,
       clientSecret: process.env.CLIENT_SECRET,
-      callbackURL: process.env.REDIRECT_URL,
-      scope: ['identify', 'guilds'],
+      callbackURL: process.env.REDIRECT_URL, // 例: https://morxserverbot.onrender.com/auth/callback
+      scope: ['identify'],
     },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        console.log('✅ OAuth verify triggered');
-        console.log('accessToken =', accessToken ? 'OK' : 'MISSING');
-        console.log('profile =', profile ? profile.username : 'undefined');
-        return done(null, profile);
-      } catch (err) {
-        console.error('❌ OAuth verify error:', err);
-        return done(err);
-      }
-    }
+    (accessToken, refreshToken, profile, done) => done(null, profile)
   )
 );
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-passport.deserializeUser((obj, done) => {
-  done(null, obj);
-});
+// ===== ページルート =====
+app.get('/', (req, res) => res.send('✅ Bot Webサーバー稼働中'));
 
-
-
-// ===== ルーティング =====
-
-// 動作確認
-app.get('/', (req, res) => res.json({ status: 'OK', uptime: process.uptime() }));
-
-// GitHub Pagesから飛ばすRenderのエントリポイント
-app.get('/auth', (req, res) => res.render('login'));
-
-// Discord OAuth2
+// 認証開始
 app.get('/auth/discord', passport.authenticate('discord'));
 
+// Discordから戻ってくる
 app.get(
   '/auth/callback',
   passport.authenticate('discord', { failureRedirect: '/auth/error' }),
-  (req, res) => {
-    console.log('✅ /auth/callback reached');
-    console.log('req.user =', req.user);
-    res.send('✅ 認証成功！Discordで連携できました。');
+  (req, res, next) => {
+    try {
+      console.log('✅ OAuth認証成功:', req.user?.username || '(不明)');
+      res.redirect('/hcaptcha');
+    } catch (err) {
+      console.error('❌ /auth/callback エラー:', err);
+      res.status(500).send('Internal Server Error');
+    }
   }
 );
-
-app.get('/auth/error', (req, res) => {
-  console.error('❌ /auth/error に到達 — OAuth失敗');
-  res.status(500).send('OAuth 認証に失敗しました。ログを確認してください。');
-});
 
 
 // hCaptcha ページ
 app.get('/hcaptcha', (req, res) => {
-  if (!req.user) return res.redirect('/auth');
+  if (!req.user) return res.redirect('/auth/discord');
   res.render('hcaptcha', { sitekey: process.env.HCAPTCHA_SITEKEY });
 });
 
 // hCaptcha 検証
 app.post('/verify', async (req, res) => {
   const token = req.body['h-captcha-response'];
-  if (!token) return res.send('❌ トークンがありません。');
-
   const verify = await fetch('https://hcaptcha.com/siteverify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -206,28 +191,19 @@ app.post('/verify', async (req, res) => {
   }).then((r) => r.json());
 
   if (verify.success) {
-    console.log(`✅ ${req.user?.username || 'Anonymous'} が認証に成功`);
-    res.redirect('/success');
+    const linkPath = path.resolve('./link.json');
+    const { returnURL } = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
+    res.render('success', { user: req.user, returnURL });
+    console.log(`✅ ${req.user.username} がhCaptcha認証に成功`);
   } else {
-    console.log('❌ hCaptcha失敗:', verify);
-    res.send('❌ hCaptcha認証に失敗しました。もう一度お試しください。');
+    res.send('❌ hCaptcha認証に失敗しました。');
   }
 });
 
-// 認証成功ページ
-app.get('/success', (req, res) => {
-  const linkPath = path.resolve('./link.json');
-  let returnURL = '#';
-  try {
-    const data = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
-    returnURL = data.returnURL || '#';
-  } catch (e) {
-    console.log('⚠️ returnURL未設定');
-  }
-  res.render('success', { user: req.user, returnURL });
-});
+// エラー時
+app.get('/auth/error', (req, res) => res.send('❌ Discord認証に失敗しました。'));
 
-// ===== サーバー起動 =====
+// サーバー起動
 app.listen(port, () => {
-  console.log(`🌐 Webサーバー起動中 → http://localhost:${port}`);
+  console.log(`🌐 Webサーバー起動: http://localhost:${port}`);
 });
