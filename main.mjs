@@ -178,12 +178,26 @@ client.on('messageCreate', async (message) => {
   });
 });
 
-// ===== ボタン押下時 =====
-client.on('interactionCreate', async interaction => {
+// ===== 認証ボタン押下 =====
+client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
+
   if (interaction.customId === 'auth_button') {
-    const authURL = '/auth/discord';
-    await interaction.reply({ content: `[認証ページはこちら](${authURL})`, ephemeral: true });
+    const authURL = 'https://morxserverbot.onrender.com/auth/discord';
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('🔗 認証ページを開く')
+        .setStyle(ButtonStyle.Link)
+        .setURL(authURL)
+    );
+
+    await interaction.reply({
+      content: '以下のボタンから認証を行ってください。',
+      components: [row],
+      ephemeral: true,
+    });
+
+    console.log(`✅ ${interaction.user.tag} が認証ボタンを押しました`);
   }
 });
 
