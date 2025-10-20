@@ -56,27 +56,43 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ===== Discord OAuth2 =====
-passport.use(new DiscordStrategy({
-  clientID: process.env.CLIENT_ID,
-  clientSecret: process.env.CLIENT_SECRET,
-  callbackURL: process.env.REDIRECT_URL,
-  scope: ['identify','guilds']
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    const res = await fetch('https://discord.com/api/users/@me/guilds', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    const guilds = await res.json();
-    profile.guilds = guilds.map(g => ({
-      id: g.id,
-      name: g.name,
-      iconURL: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png` : null
-    }));
-    done(null, profile);
-  } catch (err) {
-    done(err, profile);
-  }
-}));
+passport.use(
+  new DiscordStrategy(
+    {
+      clientID: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      callbackURL: process.env.REDIRECT_URL,
+      scope: ['identify', 'guilds'],
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const res = await fetch('https://discord.com/api/users/@me/guilds', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const guilds = await res.json();
+
+        // 配列かどうか確認
+        if (Array.isArray(guilds)) {
+          profile.guilds = guilds.map(g => ({
+            id: g.id,
+            name: g.name,
+            iconURL: g.icon
+              ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png`
+              : null,
+          }));
+        } else {
+          profile.guilds = [];
+          console.warn('⚠️ /users/@me/guilds のレスポンスが配列ではありません:', guilds);
+        }
+
+        done(null, profile);
+      } catch (err) {
+        done(err, profile);
+      }
+    }
+  )
+);
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
