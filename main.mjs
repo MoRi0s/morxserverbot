@@ -96,22 +96,38 @@ passport.use(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// ===== スラッシュコマンド登録 =====
 async function registerSlashCommands() {
   const commands = [
-    new SlashCommandBuilder().setName('setbanguild').setDescription('Ban判定サーバーを追加')
+    new SlashCommandBuilder()
+      .setName('setbanguild')
+      .setDescription('Ban判定サーバーを追加')
       .addStringOption(opt => opt.setName('server').setDescription('サーバーID').setRequired(true)),
-    new SlashCommandBuilder().setName('setbanrole').setDescription('Ban判定用のロール名を設定')
+
+    new SlashCommandBuilder()
+      .setName('setbanrole')
+      .setDescription('Ban判定用のロール名を設定')
       .addStringOption(opt => opt.setName('role').setDescription('ロール名').setRequired(true)),
-    new SlashCommandBuilder().setName('setsuccessrole').setDescription('成功判定用のロール名を設定')
+
+    new SlashCommandBuilder()
+      .setName('setsuccessrole')
+      .setDescription('成功判定用のロール名を設定')
       .addStringOption(opt => opt.setName('role').setDescription('ロール名').setRequired(true)),
-    new SlashCommandBuilder().setName('setlogchannel').setDescription('ログチャンネルを設定')
+
+    new SlashCommandBuilder()
+      .setName('setlogchannel')
+      .setDescription('ログチャンネルを設定')
       .addChannelOption(opt => opt.setName('channel').setDescription('ログ用チャンネル').setRequired(true)),
-    new SlashCommandBuilder().setName('setreturnurl').setDescription('認証後の戻り先URLを設定')
+
+    new SlashCommandBuilder()
+      .setName('setreturnurl')
+      .setDescription('認証後の戻り先URLを設定')
       .addStringOption(opt => opt.setName('url').setDescription('URL').setRequired(true)),
-    new SlashCommandBuilder().setName('setlogchannel2').setDescription('2つ目のログチャンネルを設定')
+
+    new SlashCommandBuilder()
+      .setName('setlogchannel2')
+      .setDescription('2つ目のログチャンネルを設定')
       .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true))
-];
+  ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
@@ -121,6 +137,7 @@ async function registerSlashCommands() {
     console.error('❌ スラッシュコマンド登録失敗', err);
   }
 }
+
 
 // ===== interactionCreate イベント =====
 client.on('interactionCreate', async interaction => {
@@ -270,24 +287,45 @@ app.post('/verify', async (req, res) => {
     const data = await verifyRes.json();
     if (!data.success) return res.status(400).send('HCaptcha認証に失敗しました。');
 
-    const user = req.user || { username: 'ゲスト', guilds: [] };
+    const user = req.user || { id: null, username: 'ゲスト', guilds: [] };
 
     // 設定読み込み
     const configPath = path.resolve('./banConfig.json');
-    let config = { banGuilds: [], logChannelId: '', logChannelId2: '' };
+    let config = { banGuilds: [], logChannelId: '', logChannelId2: '', successRoleName: '成功', banRoleName: '禁止' };
     if (fs.existsSync(configPath)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
     const logChannel = client.channels.cache.get(config.logChannelId);
 
     // 固定メッセージで判定
     let resultMessage = '✅ 認証成功！';
-    if (user.guilds.some(g => config.banGuilds.includes(g.id))) {
-      resultMessage = '❌ 認証失敗 (BANNED)';
-    }
+    const isBanned = user.guilds.some(g => config.banGuilds.includes(g.id));
+    if (isBanned) resultMessage = '❌ 認証失敗 (BANNED)';
 
     // ログ通知
     if (logChannel?.isTextBased()) {
       await logChannel.send(`🎯 **${user.username}** の判定: ${resultMessage}`);
+    }
+
+    // ロール付与処理
+    for (const g of user.guilds) {
+      const guild = client.guilds.cache.get(g.id);
+      if (!guild) continue;
+      try {
+        const member = await guild.members.fetch(user.id).catch(() => null);
+        if (!member) continue;
+
+        if (isBanned) {
+          // Ban ロール付与
+          const banRole = guild.roles.cache.find(r => r.name === config.banRoleName);
+          if (banRole) await member.roles.add(banRole).catch(console.error);
+        } else {
+          // Success ロール付与
+          const successRole = guild.roles.cache.find(r => r.name === config.successRoleName);
+          if (successRole) await member.roles.add(successRole).catch(console.error);
+        }
+      } catch (err) {
+        console.error(`❌ ${g.name} でのロール付与エラー:`, err);
+      }
     }
 
     // guilds 配列化
@@ -338,6 +376,7 @@ Include their icons as small circular images next to each name.`;
     res.status(500).send('Internal Server Error');
   }
 });
+
 
 
 
