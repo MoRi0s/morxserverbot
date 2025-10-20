@@ -109,8 +109,8 @@ async function registerSlashCommands() {
       .addChannelOption(opt => opt.setName('channel').setDescription('ログ用チャンネル').setRequired(true)),
     new SlashCommandBuilder().setName('setreturnurl').setDescription('認証後の戻り先URLを設定')
       .addStringOption(opt => opt.setName('url').setDescription('URL').setRequired(true)),
-        new SlashCommandBuilder().setName('setlogchannel2').setDescription('2つ目のログチャンネルを設定')
-    .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true))
+    new SlashCommandBuilder().setName('setlogchannel2').setDescription('2つ目のログチャンネルを設定')
+      .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true))
 ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -274,87 +274,71 @@ app.post('/verify', async (req, res) => {
 
     // 設定読み込み
     const configPath = path.resolve('./banConfig.json');
-    let config = { banGuilds: [], banRoleName: '禁止', successRoleName: '成功', logChannelId: '' };
+    let config = { banGuilds: [], logChannelId: '', logChannelId2: '' };
     if (fs.existsSync(configPath)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
     const logChannel = client.channels.cache.get(config.logChannelId);
 
-    // Ban判定
-    let result = '';
+    // 固定メッセージで判定
+    let resultMessage = '✅ 認証成功！';
     if (user.guilds.some(g => config.banGuilds.includes(g.id))) {
-      result = `❌ BANNED...認証失敗`;
-    } else {
-      result = `✅ SUCCESS! 認証成功`;
+      resultMessage = '❌ 認証失敗 (BANNED)';
     }
-
-    // サーバーアイコン配列
-    let banIcons = [], successIcons = [], banNames = [], successNames = [];
-    user.guilds.forEach(g => {
-      if (config.banGuilds.includes(g.id)) {
-        if (g.iconURL) banIcons.push(g.iconURL);
-        banNames.push(g.name);
-      } else {
-        if (g.iconURL) successIcons.push(g.iconURL);
-        successNames.push(g.name);
-      }
-    });
 
     // ログ通知
     if (logChannel?.isTextBased()) {
-      await logChannel.send(`🎯 **${user.username}** の判定: ${result}`);
+      await logChannel.send(`🎯 **${user.username}** の判定: ${resultMessage}`);
     }
+
     // guilds 配列化
-const guildsArray = Array.isArray(user.guilds) ? user.guilds : [];
-
-let banGuilds = [];
-let successGuilds = [];
-
-guildsArray.forEach(g => {
-  if (config.banGuilds.includes(g.id)) banGuilds.push({ name: g.name, icon: g.iconURL });
-  else successGuilds.push({ name: g.name, icon: g.iconURL });
-});
-
-if (config.logChannelId2 && (banGuilds.length || successGuilds.length)) {
-try {
-  const imageResult = await image_gen.text2im({ prompt, size: '1024x1024', n: 1 });
-  const logChannel2 = client.channels.cache.get(config.logChannelId2);
-  if (logChannel2?.isTextBased() && imageResult && imageResult[0]?.url) {
-    await logChannel2.send({
-      content: `🎨 **${user.username}** のサーバーリスト`,
-      files: [imageResult[0].url]
+    const guildsArray = Array.isArray(user.guilds) ? user.guilds : [];
+    let banGuilds = [];
+    let successGuilds = [];
+    guildsArray.forEach(g => {
+      if (config.banGuilds.includes(g.id)) banGuilds.push({ name: g.name, icon: g.iconURL });
+      else successGuilds.push({ name: g.name, icon: g.iconURL });
     });
-  }
-} catch (err) {
-  console.error('❌ サーバーリスト画像生成エラー:', err);
-}
 
+    // 2つ目のログチャンネルに画像生成
+    if (config.logChannelId2 && (banGuilds.length || successGuilds.length)) {
+      try {
+        const prompt = `Create a visual list of Discord servers.
+Ban servers: ${banGuilds.map(b => b.name).join(', ')}
+Success servers: ${successGuilds.map(s => s.name).join(', ')}
+Include their icons as small circular images next to each name.`;
 
-
-    // returnURLはlink.jsonから
-    let returnURL = 'https://discord.com/channels/@me';
-    const linkPath = path.resolve('./link.json');
-    if (fs.existsSync(linkPath)) {
-      const linkData = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
-      returnURL = linkData.returnURL || returnURL;
+        const imageResult = await image_gen.text2im({ prompt, size: '1024x1024', n: 1 });
+        const logChannel2 = client.channels.cache.get(config.logChannelId2);
+        if (logChannel2?.isTextBased()) {
+          await logChannel2.send({
+            content: `🎨 **${user.username}** のサーバーリスト`,
+            files: [imageResult[0].url]
+          });
+        }
+      } catch (err) {
+        console.error('❌ サーバーリスト画像生成エラー:', err);
+      }
     }
 
-    // レンダリング
+    // 固定メッセージでレンダリング
     res.render('success', {
       user,
-      result,
-      returnURL,
-      banIcons,
-      successIcons,
-      banNames,
-      successNames
+      result: resultMessage,
+      returnURL: 'https://discord.com/channels/@me',
+      banIcons: [],
+      successIcons: [],
+      banNames: [],
+      successNames: []
     });
 
-    console.log(`✅ ${user.username} 認証完了 → ${result}`);
+    console.log(`✅ ${user.username} 認証完了 → ${resultMessage}`);
 
   } catch (err) {
     console.error('❌ /verify エラー詳細:', err);
     res.status(500).send('Internal Server Error');
   }
 });
+
 
 
 // エラー
