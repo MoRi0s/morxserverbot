@@ -1,30 +1,74 @@
-<form method="POST" action="/verify">
-  <div class="h-captcha" data-sitekey="<%= sitekey %>"></div>
-  <br>
-  <button type="submit">送信</button>
-</form>
-<script src="https://hcaptcha.com/1/api.js" async defer></script>
-<style>
-  body {
-    font-family: sans-serif;
-    background-color: #1e1e2f;
-    color: white;
-    text-align: center;
-    padding-top: 100px;
-  }
-  .h-captcha {
-    display: inline-block;
-  }
-  button {
-    margin-top: 20px;
-    padding: 12px 24px;
-    background: linear-gradient(90deg, #0055ff, #5500ff);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.3s;
-  }
-  button:hover {
-    opacity: 0.8;
-  }
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= serverName %> 認証</title>
+  <script src="https://hcaptcha.com/1/api.js" async defer></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #1e1e2f;
+      color: white;
+      text-align: center;
+      padding-top: 100px;
+    }
+
+    .container {
+      display: inline-block;
+      background: #2a2a3d;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+      min-width: 320px;
+    }
+
+    h1 {
+      background: linear-gradient(90deg, #0055ff, #5500ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+    }
+
+    .h-captcha {
+      display: inline-block;
+      margin: 10px 0;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 12px 30px;
+      background: linear-gradient(90deg, #0055ff, #5500ff);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      opacity: 0.8;
+    }
+
+    footer {
+      margin-top: 60px;
+      font-size: 0.9rem;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><%= serverName %> 認証</h1>
+    <form method="POST" action="/verify">
+      <div class="h-captcha" data-sitekey="<%= sitekey %>"></div>
+      <br>
+      <button type="submit">送信</button>
+    </form>
+  </div>
+  <footer>
+    powered by Morx Server Bot
+  </footer>
+</body>
+</html>

@@ -88,22 +88,29 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// ===== ボタン押下 =====
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
-  if (interaction.customId !== 'auth_button') return;
 
-  try {
-    await interaction.deferReply({ ephemeral: true });
+  if (interaction.customId === 'auth_button') {
     const authURL = 'https://morxserverbot.onrender.com/auth/discord';
-    await interaction.editReply({
-      content: `こちらから認証を行ってください:\n🔗 ${authURL}`,
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('🔗 認証ページを開く')
+        .setStyle(ButtonStyle.Link)
+        .setURL(authURL)
+    );
+
+    await interaction.reply({
+      content: '以下のボタンから認証を行ってください。',
+      components: [row],
+      ephemeral: true,
     });
+
     console.log(`✅ ${interaction.user.tag} が認証ボタンを押しました`);
-  } catch (err) {
-    console.error('❌ Interaction error:', err);
   }
 });
+
 
 // ===== Discord ログイン =====
 if (!process.env.DISCORD_TOKEN) {
@@ -162,14 +169,20 @@ app.get(
   passport.authenticate('discord', { failureRedirect: '/auth/error' }),
   (req, res, next) => {
     try {
-      console.log('✅ OAuth認証成功:', req.user?.username || '(不明)');
-      res.redirect('/hcaptcha');
+      if (!req.user) {
+        console.error('❌ OAuth認証に失敗: ユーザー情報がありません');
+        return res.redirect('/auth/error');
+      }
+
+      console.log(`✅ OAuth認証成功: ${req.user.username || '(不明)'}`);
+      return res.redirect('/hcaptcha'); // ← 成功後は確実にhCaptchaへ
     } catch (err) {
       console.error('❌ /auth/callback エラー:', err);
-      res.status(500).send('Internal Server Error');
+      return res.status(500).send('Internal Server Error');
     }
   }
 );
+
 
 
 // hCaptcha ページ
