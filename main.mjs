@@ -210,20 +210,25 @@ app.get('/auth/callback', passport.authenticate('discord', { failureRedirect: '/
   console.log(`✅ OAuth認証成功: ${req.user.username}`);
   res.redirect('/hcaptcha');
 });
+// ===== /hcaptcha =====
 app.get('/hcaptcha', (req, res) => {
-  if (!req.user) return res.redirect('/auth');
+  if (!req.user) return res.status(401).send('⚠️ 認証が必要です');
+
+  // OAuth2で取得したサーバー情報をそのまま使用
   let serverName = 'Morx Server';
   const linkPath = path.resolve('./link.json');
   if (fs.existsSync(linkPath)) {
     const { returnURL } = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
-    const guildId = returnURL.split('/')[4];
-    if (guildId && guildId !== '@me') {
-      const guild = client.guilds.cache.get(guildId);
+    if (returnURL) {
+      const guildId = returnURL.split('/')[4];
+      const guild = req.user.guilds.find(g => g.id === guildId);
       if (guild) serverName = guild.name;
     }
   }
+
   res.render('hcaptcha', { sitekey: process.env.HCAPTCHA_SITEKEY, serverName });
 });
+
 
 // ===== /verify =====
 app.post('/verify', async (req, res) => {
