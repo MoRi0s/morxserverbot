@@ -108,7 +108,7 @@ async function registerSlashCommands() {
     new SlashCommandBuilder().setName('setlogchannel').setDescription('ログチャンネルを設定')
       .addChannelOption(opt => opt.setName('channel').setDescription('ログ用チャンネル').setRequired(true)),
     new SlashCommandBuilder().setName('setreturnurl').setDescription('認証後の戻り先URLを設定')
-      .addStringOption(opt => opt.setName('url').setDescription('URL').setRequired(true))
+      .addStringOption(opt => opt.setName('url').setDescription('URL').setRequired(true)),
         new SlashCommandBuilder().setName('setlogchannel2').setDescription('2つ目のログチャンネルを設定')
     .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true))
 ];
