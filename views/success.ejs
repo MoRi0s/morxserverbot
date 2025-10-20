@@ -2,35 +2,108 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>認証成功</title>
+  <title>認証結果</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: 'Segoe UI', sans-serif;
       background-color: #1e1e2f;
       color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background-color: #2b2b3d;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
       text-align: center;
-      padding-top: 100px;
+      min-width: 320px;
     }
-    h2 { color: #00ff88; }
-    .button {
-      display: inline-block;
-      margin-top: 20px;
-      padding: 12px 24px;
-      background: linear-gradient(90deg, #0055ff, #5500ff);
+
+    .user-name {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin: 15px 0;
+      padding: 10px;
+      border-radius: 10px;
       color: white;
-      text-decoration: none;
-      border-radius: 8px;
-      transition: 0.3s;
     }
-    .button:hover { opacity: 0.8; }
+
+    .status.success { background-color: #28a745; }
+    .status.ban { background-color: #dc3545; }
+
+    .server-icons {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .server-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 3px solid;
+      padding: 3px;
+    }
+
+    .server-icon.ban { border-color: #dc3545; }
+    .server-icon.success { border-color: #28a745; }
+
+    .return-link {
+      margin-top: 15px;
+      display: inline-block;
+      text-decoration: none;
+      color: #1e1e2f;
+      background: #00d1ff;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+
+    .return-link:hover {
+      background: #0095cc;
+    }
   </style>
 </head>
 <body>
-  <h1><%= serverName %></h1> <!-- サーバー名をここに表示 -->
-  <h2>✅ 認証に成功しました！</h2>
-  <p>ようこそ、<%= user.username %> さん！</p>
+  <div class="card">
+    <div class="user-name">ユーザー: <%= user.username %></div>
+    <div class="status <%= result.includes('❌') ? 'ban' : 'success' %>">
+      判定: <%= result %>
+    </div>
 
-  <!-- サーバーに戻るボタン -->
-  <a class="button" href="<%= returnURL %>">Discordに戻る</a>
+    <% if ((banIcons && banIcons.length) || (successIcons && successIcons.length)) { %>
+ <div class="server-icons">
+  <% banIcons?.forEach((icon, i) => { %>
+    <div style="display: flex; flex-direction: column; align-items: center;">
+      <img src="<%= icon %>" class="server-icon ban" title="<%= banNames[i] %>" />
+      <span style="font-size:0.8rem; margin-top:3px;"><%= banNames[i] %></span>
+    </div>
+  <% }); %>
+  <% successIcons?.forEach((icon, i) => { %>
+    <div style="display: flex; flex-direction: column; align-items: center;">
+      <img src="<%= icon %>" class="server-icon success" title="<%= successNames[i] %>" />
+      <span style="font-size:0.8rem; margin-top:3px;"><%= successNames[i] %></span>
+    </div>
+  <% }); %>
+</div>
+
+    <% } %>
+
+    <a href="<%= returnURL %>" class="return-link">サーバーに戻る</a>
+  </div>
 </body>
 </html>
