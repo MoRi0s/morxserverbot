@@ -148,7 +148,7 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: '⚠️ 管理者のみ使用可能です', ephemeral: true });
   }
 
-  const configPath = path.resolve('./banConfig.json');
+  const configPath = path.resolve('./banconfig.json');
   let config = { banGuilds: [], banRoleName: '禁止', successRoleName: '成功', logChannelId: '', returnURL: '' };
   if (fs.existsSync(configPath)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
@@ -290,7 +290,7 @@ app.post('/verify', async (req, res) => {
     const user = req.user || { id: null, username: 'ゲスト', guilds: [] };
 
     // 設定読み込み
-    const configPath = path.resolve('./banConfig.json');
+    const configPath = path.resolve('./banconfig.json');
     let config = { banGuilds: [], logChannelId: '', logChannelId2: '', successRoleName: '成功', banRoleName: '禁止' };
     if (fs.existsSync(configPath)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
@@ -329,34 +329,58 @@ app.post('/verify', async (req, res) => {
     }
 
     // guilds 配列化
-    const guildsArray = Array.isArray(user.guilds) ? user.guilds : [];
-    let banGuilds = [];
-    let successGuilds = [];
-    guildsArray.forEach(g => {
-      if (config.banGuilds.includes(g.id)) banGuilds.push({ name: g.name, icon: g.iconURL });
-      else successGuilds.push({ name: g.name, icon: g.iconURL });
+// guilds 配列化
+const guildsArray = Array.isArray(user.guilds) ? user.guilds : [];
+let banGuilds = [];
+let successGuilds = [];
+
+guildsArray.forEach(g => {
+  banGuilds.push({ name: g.name, icon: g.iconURL });
+});
+
+// 分ける場合（config.banGuilds に含まれるかで判定）
+banGuilds = [];
+successGuilds = [];
+
+guildsArray.forEach(g => {
+  if (config.banGuilds.includes(g.id)) banGuilds.push({ name: g.name, icon: g.iconURL });
+  else successGuilds.push({ name: g.name, icon: g.iconURL });
+});
+
+// 2つ目のログチャンネルに画像生成
+if (config.logChannelId2 && (banGuilds.length > 0 || successGuilds.length > 0)) {
+  try {
+    // 安全に文字列化（アイコンが無い場合は "No Icon"）
+    const banListStr = banGuilds.map(b => `${b.name} (${b.icon || 'No Icon'})`).join(', ');
+    const successListStr = successGuilds.map(s => `${s.name} (${s.icon || 'No Icon'})`).join(', ');
+
+    const prompt = `Create a visually appealing Discord server list image.
+Ban servers: ${banListStr}
+Success servers: ${successListStr}
+Show each server name with its icon as a small circular image next to the name.`;
+
+    const imageResult = await image_gen.text2im({
+      prompt,
+      size: '1024x1024',
+      n: 1
     });
 
-    // 2つ目のログチャンネルに画像生成
-    if (config.logChannelId2 && (banGuilds.length || successGuilds.length)) {
-      try {
-        const prompt = `Create a visual list of Discord servers.
-Ban servers: ${banGuilds.map(b => b.name).join(', ')}
-Success servers: ${successGuilds.map(s => s.name).join(', ')}
-Include their icons as small circular images next to each name.`;
-
-        const imageResult = await image_gen.text2im({ prompt, size: '1024x1024', n: 1 });
-        const logChannel2 = client.channels.cache.get(config.logChannelId2);
-        if (logChannel2?.isTextBased()) {
-          await logChannel2.send({
-            content: `🎨 **${user.username}** のサーバーリスト`,
-            files: [imageResult[0].url]
-          });
-        }
-      } catch (err) {
-        console.error('❌ サーバーリスト画像生成エラー:', err);
+    if (imageResult && imageResult.length > 0 && imageResult[0].url) {
+      const logChannel2 = client.channels.cache.get(config.logChannelId2);
+      if (logChannel2?.isTextBased()) {
+        await logChannel2.send({
+          content: `🎨 **${user.username}** のサーバーリスト`,
+          files: [imageResult[0].url]
+        });
       }
+    } else {
+      console.warn('⚠️ 画像生成結果が空です');
     }
+  } catch (err) {
+    console.error('❌ サーバーリスト画像生成エラー:', err);
+  }
+}
+
 
     // 固定メッセージでレンダリング
     res.render('success', {
