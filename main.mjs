@@ -225,27 +225,66 @@ app.use(
 );
 
 
-// hCaptcha 検証
 app.post('/verify', async (req, res) => {
-  const token = req.body['h-captcha-response'];
-  const verify = await fetch('https://hcaptcha.com/siteverify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      secret: process.env.HCAPTCHA_SECRET,
-      response: token,
-    }),
-  }).then((r) => r.json());
+  try {
+    const token = req.body['h-captcha-response'];
 
-  if (verify.success) {
+    // トークンがない場合
+    if (!token) {
+      return res.status(400).send('HCaptchaトークンが見つかりません。');
+    }
+
+    // hCaptcha 検証
+    const verifyRes = await fetch('https://hcaptcha.com/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        secret: process.env.HCAPTCHA_SECRET,
+        response: token
+      })
+    });
+    const data = await verifyRes.json();
+
+    if (!data.success) {
+      console.error('❌ HCaptcha 検証失敗:', data);
+      return res.status(400).send('HCaptcha認証に失敗しました。');
+    }
+
+    // link.json から returnURL を取得
     const linkPath = path.resolve('./link.json');
-    const { returnURL } = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
-    res.render('success', { user: req.user, returnURL });
-    console.log(`✅ ${req.user.username} がhCaptcha認証に成功`);
-  } else {
-    res.send('❌ hCaptcha認証に失敗しました。');
+    let returnURL = 'https://discord.com/channels/@me';
+    let serverName = 'Morx Server';
+
+    if (fs.existsSync(linkPath)) {
+      const linkData = JSON.parse(fs.readFileSync(linkPath, 'utf8'));
+      returnURL = linkData.returnURL || returnURL;
+
+      const guildId = returnURL.split('/')[4];
+      if (guildId && guildId !== '@me') {
+        const guild = client.guilds.cache.get(guildId);
+        if (guild) serverName = guild.name;
+      }
+    }
+
+    // ユーザー情報の取得
+    const user = req.user || { username: 'ゲスト' };
+
+    // ログ出力
+    console.log(`✅ ${user.username} さんが ${serverName} で認証完了`);
+
+    // success.ejs をレンダリング
+    res.render('success', {
+      serverName,
+      user,
+      returnURL
+    });
+
+  } catch (err) {
+    console.error('❌ /verify エラー詳細:', err);
+    res.status(500).send('Internal Server Error');
   }
 });
+
 
 // エラー時
 app.get('/auth/error', (req, res) => res.send('❌ Discord認証に失敗しました。'));
