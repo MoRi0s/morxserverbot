@@ -211,7 +211,20 @@ client.on('interactionCreate', async interaction => {
       });
       break;
   }
+
 });
+
+
+
+  // --- ボタン処理 ---
+if (interaction.isButton() && interaction.customId === 'random_number_button') {
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    await interaction.reply({
+      content: `🎉 <@${interaction.user.id}> さんのパスワード: **${randomNum}**`,
+      ephemeral: false,
+    });
+  }
+
 
 // ===== !auth メッセージコマンド =====
 client.on('messageCreate', async (message) => {
@@ -259,14 +272,6 @@ client.on('interactionCreate', async (interaction) => {
 
     console.log(`✅ ${interaction.user.tag} が認証ボタンを押しました`);
   }
-
-  if (interaction.customId === 'random_number_button') {
-  const randomNumber = Math.floor(100000 + Math.random() * 900000);
-  await interaction.reply({
-    content: `${interaction.user} さんのランダム数字は **${randomNumber}** 🎯`,
-    ephemeral: false, // trueにすると本人のみ表示
-  });
-}
 
 });
 
