@@ -126,7 +126,12 @@ async function registerSlashCommands() {
     new SlashCommandBuilder()
       .setName('setlogchannel2')
       .setDescription('2つ目のログチャンネルを設定')
-      .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true))
+      .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true)),
+
+      new SlashCommandBuilder()
+  .setName('randomnumber')
+  .setDescription('ランダム6桁の数字をボタン付きで送信'),
+
   ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -192,6 +197,19 @@ client.on('interactionCreate', async interaction => {
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
       await interaction.reply(`✅ 2つ目のログチャンネルを ${channel2.name} に設定しました`);
       break;
+
+    case 'randomnumber':
+      const button = new ButtonBuilder()
+        .setCustomId('random_number_button')
+        .setLabel('🎲 パスワードを生成')
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(button);
+      await interaction.reply({
+        content: 'ボタンを押すと6桁のパスワードが出るよ👇',
+        components: [row],
+      });
+      break;
   }
 });
 
@@ -241,6 +259,15 @@ client.on('interactionCreate', async (interaction) => {
 
     console.log(`✅ ${interaction.user.tag} が認証ボタンを押しました`);
   }
+
+  if (interaction.customId === 'random_number_button') {
+  const randomNumber = Math.floor(100000 + Math.random() * 900000);
+  await interaction.reply({
+    content: `${interaction.user} さんのランダム数字は **${randomNumber}** 🎯`,
+    ephemeral: false, // trueにすると本人のみ表示
+  });
+}
+
 });
 
 
