@@ -96,6 +96,7 @@ passport.use(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
+// ===== スラッシュコマンド登録 =====
 async function registerSlashCommands() {
   const commands = [
     new SlashCommandBuilder()
@@ -128,10 +129,9 @@ async function registerSlashCommands() {
       .setDescription('2つ目のログチャンネルを設定')
       .addChannelOption(opt => opt.setName('channel').setDescription('2つ目のログ用チャンネル').setRequired(true)),
 
-      new SlashCommandBuilder()
-  .setName('randomnumber')
-  .setDescription('ランダム6桁の数字をボタン付きで送信'),
-
+    new SlashCommandBuilder()
+      .setName('randomnumber')
+      .setDescription('ランダム6桁の数字をボタン付きで送信'),
   ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -143,82 +143,113 @@ async function registerSlashCommands() {
   }
 }
 
-
 // ===== interactionCreate イベント =====
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+client.on('interactionCreate', async (interaction) => {
 
-  // 管理者権限確認
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '⚠️ 管理者のみ使用可能です', ephemeral: true });
-  }
+  // --- スラッシュコマンド ---
+  if (interaction.isChatInputCommand()) {
+    // 管理者チェック（/randomnumber だけは誰でもOKにしたいならここを調整）
+    if (
+      interaction.commandName !== 'randomnumber' &&
+      !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)
+    ) {
+      return interaction.reply({ content: '⚠️ 管理者のみ使用可能です', ephemeral: true });
+    }
 
-  const configPath = path.resolve('./banconfig.json');
-  let config = { banGuilds: [], banRoleName: '禁止', successRoleName: '成功', logChannelId: '', returnURL: '' };
-  if (fs.existsSync(configPath)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const configPath = path.resolve('./banconfig.json');
+    let config = { banGuilds: [], banRoleName: '禁止', successRoleName: '成功', logChannelId: '', returnURL: '' };
+    if (fs.existsSync(configPath)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-  switch (interaction.commandName) {
-    case 'setbanguild':
-      const serverId = interaction.options.getString('server');
-      if (!config.banGuilds.includes(serverId)) config.banGuilds.push(serverId);
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      await interaction.reply(`✅ Ban判定サーバーに ${serverId} を追加しました`);
-      break;
+    switch (interaction.commandName) {
+      case 'setbanguild': {
+        const serverId = interaction.options.getString('server');
+        if (!config.banGuilds.includes(serverId)) config.banGuilds.push(serverId);
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        await interaction.reply(`✅ Ban判定サーバーに ${serverId} を追加しました`);
+        break;
+      }
 
-    case 'setbanrole':
-      config.banRoleName = interaction.options.getString('role');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      await interaction.reply(`✅ Banロール名を ${config.banRoleName} に設定しました`);
-      break;
+      case 'setbanrole': {
+        config.banRoleName = interaction.options.getString('role');
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        await interaction.reply(`✅ Banロール名を ${config.banRoleName} に設定しました`);
+        break;
+      }
 
-    case 'setsuccessrole':
-      config.successRoleName = interaction.options.getString('role');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      await interaction.reply(`✅ 成功ロール名を ${config.successRoleName} に設定しました`);
-      break;
+      case 'setsuccessrole': {
+        config.successRoleName = interaction.options.getString('role');
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        await interaction.reply(`✅ 成功ロール名を ${config.successRoleName} に設定しました`);
+        break;
+      }
 
-    case 'setlogchannel':
-      const channel = interaction.options.getChannel('channel');
-      config.logChannelId = channel.id;
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      await interaction.reply(`✅ ログチャンネルを ${channel.name} に設定しました`);
-      break;
+      case 'setlogchannel': {
+        const channel = interaction.options.getChannel('channel');
+        config.logChannelId = channel.id;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        await interaction.reply(`✅ ログチャンネルを ${channel.name} に設定しました`);
+        break;
+      }
 
-    case 'setreturnurl':
-      config.returnURL = interaction.options.getString('url');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      fs.writeFileSync(path.resolve('./link.json'), JSON.stringify({ returnURL: config.returnURL }, null, 2));
-      await interaction.reply(`✅ 認証後の戻り先URLを設定しました: ${config.returnURL}`);
-      break;
+      case 'setreturnurl': {
+        config.returnURL = interaction.options.getString('url');
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        fs.writeFileSync(path.resolve('./link.json'), JSON.stringify({ returnURL: config.returnURL }, null, 2));
+        await interaction.reply(`✅ 認証後の戻り先URLを設定しました: ${config.returnURL}`);
+        break;
+      }
 
-    case 'setlogchannel2':
-      const channel2 = interaction.options.getChannel('channel');
-      config.logChannelId2 = channel2.id;
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      await interaction.reply(`✅ 2つ目のログチャンネルを ${channel2.name} に設定しました`);
-      break;
+      case 'setlogchannel2': {
+        const channel2 = interaction.options.getChannel('channel');
+        config.logChannelId2 = channel2.id;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        await interaction.reply(`✅ 2つ目のログチャンネルを ${channel2.name} に設定しました`);
+        break;
+      }
 
-    case 'randomnumber':
-      const button = new ButtonBuilder()
-        .setCustomId('random_number_button')
-        .setLabel('🎲 パスワードを生成')
-        .setStyle(ButtonStyle.Primary);
+      case 'randomnumber': {
+        const button = new ButtonBuilder()
+          .setCustomId('random_number_button')
+          .setLabel('🎲 パスワードを生成')
+          .setStyle(ButtonStyle.Primary);
 
-      const row = new ActionRowBuilder().addComponents(button);
-      await interaction.reply({
-        content: 'ボタンを押すと6桁のパスワードが出るよ👇',
-        components: [row],
-      });
-      break;
+        const row = new ActionRowBuilder().addComponents(button);
+        await interaction.reply({
+          content: 'ボタンを押すと6桁のパスワードが出るよ👇',
+          components: [row],
+        });
+        break;
+      }
+    }
   }
 
   // --- ボタン処理 ---
-  if (interaction.isButton() && interaction.customId === 'random_number_button') {
-    const randomNum = Math.floor(100000 + Math.random() * 900000);
-    await interaction.reply({
-      content: `🎉 <@${interaction.user.id}> さんのパスワード: **${randomNum}**`,
-      ephemeral: false,
-    });
+  if (interaction.isButton()) {
+    if (interaction.customId === 'random_number_button') {
+      const randomNum = Math.floor(100000 + Math.random() * 900000);
+      await interaction.reply({
+        content: `🎉 <@${interaction.user.id}> さんのパスワード: **${randomNum}**`,
+        ephemeral: false,
+      });
+    }
+
+    if (interaction.customId === 'auth_button') {
+      const authURL = 'https://morxserverbot.onrender.com/auth/discord';
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel('🔗 認証ページを開く')
+          .setStyle(ButtonStyle.Link)
+          .setURL(authURL)
+      );
+
+      await interaction.reply({
+        content: '以下のボタンから認証を行ってください。',
+        components: [row],
+        ephemeral: true,
+      });
+
+      console.log(`✅ ${interaction.user.tag} が認証ボタンを押しました`);
+    }
   }
 });
 
@@ -246,6 +277,7 @@ client.on('messageCreate', async (message) => {
     components: [row],
   });
 });
+
 
 // ===== 認証ボタン押下 =====
 client.on('interactionCreate', async (interaction) => {
