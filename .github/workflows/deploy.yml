@@ -1,4 +1,4 @@
-name: Deploy MorxBot
+name: Deploy MorxServerBot
 
 'on':
   push:
