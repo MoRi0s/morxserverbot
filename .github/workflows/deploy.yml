@@ -1,0 +1,84 @@
+name: Deploy MorxBot
+
+'on':
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check secrets
+        run: |
+          if [ -z "${{ secrets.TS_OAUTH_CLIENT_ID }}" ]; then
+            echo "CLIENT ID EMPTY"
+          else
+            echo "CLIENT ID OK"
+          fi
+
+          if [ -z "${{ secrets.TS_OAUTH_SECRET }}" ]; then
+            echo "SECRET OK"
+          else
+            echo "SECRET OK"
+          fi
+
+      - name: Check secrets
+        run: |
+          echo "CLIENT_ID length: ${#CLIENT_ID}"
+          echo "SECRET length: ${#SECRET}"
+        env:
+          CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:githubactions
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 100.93.80.96
+          username: deploy
+          key: ${{ secrets.SERVER_KEY }}
+
+          script: |
+            echo "=== DEPLOY START ==="
+
+            echo "USER:"
+            whoami
+
+            echo "CURRENT DIR:"
+            pwd
+
+            echo "CHANGE DIRECTORY"
+            cd /home/mori/DiscordBot/morxserverbot
+
+            git config --global --add safe.directory /home/mori/DiscordBot/morxserverbot
+
+            echo "GIT STATUS BEFORE:"
+            git status
+
+            echo "CURRENT COMMIT BEFORE:"
+            git log -1 --oneline
+
+            echo "RUN GIT PULL"
+            git pull
+
+            echo "CURRENT COMMIT AFTER:"
+            git log -1 --oneline
+
+            echo "RUN NPM INSTALL"
+            npm install
+
+            echo "RESTART PM2"
+            sudo -u mori pm2 restart morxserverbot
+
+            echo "PM2 STATUS:"
+            sudo -u mori pm2 status
+
+            echo "=== DEPLOY END ==="
